@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun install)",
+      "Bash(bun add @tanstack/react-router convex @convex-dev/auth zod zustand lucide-react face-api.js)",
+      "Bash(bun add tailwindcss @tailwindcss/vite)",
+      "Bash(bun add -d @tanstack/router-vite-plugin @tanstack/router-devtools)",
+      "Bash(bun add @fontsource/outfit @fontsource/geist-mono)",
+      "Bash(bunx shadcn@latest init -d)"
+    ]
+  }
+}
