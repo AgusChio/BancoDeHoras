@@ -6,7 +6,27 @@
       "Bash(bun add tailwindcss @tailwindcss/vite)",
       "Bash(bun add -d @tanstack/router-vite-plugin @tanstack/router-devtools)",
       "Bash(bun add @fontsource/outfit @fontsource/geist-mono)",
-      "Bash(bunx shadcn@latest init -d)"
+      "Bash(bunx shadcn@latest init -d)",
+      "Bash(bun add @fontsource-variable/geist tw-animate-css)",
+      "Bash(bunx shadcn@latest add button input label card table badge dialog select avatar separator form sonner)",
+      "Bash(bunx shadcn@latest add form)",
+      "Bash(bun add react-hook-form @hookform/resolvers)",
+      "Bash(\"C:/Users/agust/Desktop/BancoDeHora/src/main.tsx\":*)",
+      "Bash(MODELS_DIR=\"C:/Users/agust/Desktop/BancoDeHora/public/models\")",
+      "Bash(BASE_URL=\"https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights\")",
+      "Bash(__NEW_LINE_b1f2af6dc1c4103c__ echo \"Testing URL...\")",
+      "Bash(curl -sL --max-time 10 \"$BASE_URL/tiny_face_detector_model-weights_manifest.json\")",
+      "Bash(__NEW_LINE_328b71f58b1c907e__ node -e \":*)",
+      "Bash(bun run build)",
+      "Bash(node -e \":*)",
+      "Bash(export PATH=\"$PATH:/c/Users/agust/AppData/Roaming/npm\")",
+      "Bash(bun remove @convex-dev/auth)",
+      "Bash(bun add @clerk/clerk-react)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p\\) for chunk in d for p in chunk.get\\(''paths'',[]\\)]\")",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
