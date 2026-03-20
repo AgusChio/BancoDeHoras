@@ -17,13 +17,15 @@ export function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<'auto' | 'signIn' | 'signUp'>('auto')
 
-  const isSetup = hasAdmin === false
-  const title = isSetup ? 'Crear cuenta de administrador' : 'Iniciar sesión'
-  const description = isSetup
-    ? 'Primera vez — creá tu cuenta para comenzar'
+  // auto: primer acceso → signUp si no hay admin, signIn si hay
+  const isSignUp = mode === 'signUp' || (mode === 'auto' && hasAdmin === false)
+  const title = isSignUp ? 'Registrarse' : 'Iniciar sesión'
+  const description = isSignUp
+    ? 'Creá tu cuenta de administrador'
     : 'Ingresá con tu cuenta de administrador'
-  const buttonLabel = isSetup ? 'Crear cuenta' : 'Ingresar'
+  const buttonLabel = isSignUp ? 'Crear cuenta' : 'Ingresar'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -33,7 +35,7 @@ export function LoginForm() {
       await signIn('password', {
         email,
         password,
-        flow: isSetup ? 'signUp' : 'signIn',
+        flow: isSignUp ? 'signUp' : 'signIn',
       })
       navigate({ to: '/admin/employees' })
     } catch (err: unknown) {
@@ -97,12 +99,12 @@ export function LoginForm() {
               <Input
                 id="password"
                 type="password"
-                placeholder={isSetup ? 'Mínimo 8 caracteres' : '••••••••'}
+                placeholder={isSignUp ? 'Mínimo 8 caracteres' : '••••••••'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={isSetup ? 8 : undefined}
-                autoComplete={isSetup ? 'new-password' : 'current-password'}
+                minLength={isSignUp ? 8 : undefined}
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
               />
             </div>
 
@@ -115,6 +117,22 @@ export function LoginForm() {
               {loading && <Loader2 size={16} className="animate-spin mr-2" />}
               {loading ? 'Procesando...' : buttonLabel}
             </Button>
+
+            <p className="text-center text-sm text-gray-500">
+              {isSignUp ? '¿Ya tenés cuenta?' : '¿No tenés cuenta?'}{' '}
+              <button
+                type="button"
+                className="font-medium underline underline-offset-2"
+                style={{ color: 'oklch(0.60 0.20 270)' }}
+                onClick={() => {
+                  setMode(isSignUp ? 'signIn' : 'signUp')
+                  setEmail('')
+                  setPassword('')
+                }}
+              >
+                {isSignUp ? 'Iniciar sesión' : 'Registrarse'}
+              </button>
+            </p>
           </form>
         </CardContent>
       </Card>
