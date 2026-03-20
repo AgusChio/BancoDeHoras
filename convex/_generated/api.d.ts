@@ -9,10 +9,12 @@
  */
 
 import type * as attendance from "../attendance.js";
+import type * as auth from "../auth.js";
 import type * as businesses from "../businesses.js";
 import type * as employees from "../employees.js";
 import type * as http from "../http.js";
 import type * as reports from "../reports.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -22,10 +24,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
+  auth: typeof auth;
   businesses: typeof businesses;
   employees: typeof employees;
   http: typeof http;
   reports: typeof reports;
+  seed: typeof seed;
 }>;
 
 /**

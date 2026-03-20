@@ -1,3 +1,6 @@
-// Auth manejado por Clerk.
-// Convex valida los JWTs de Clerk automáticamente con la config de auth.config.js.
-// En las funciones se usa ctx.auth.getUserIdentity() para verificar autenticación.
+import { convexAuth } from '@convex-dev/auth/server'
+import { Password } from '@convex-dev/auth/providers/Password'
+
+export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+  providers: [Password],
+})

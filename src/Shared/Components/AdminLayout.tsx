@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useAuth, useClerk } from '@clerk/clerk-react'
+import { useConvexAuth } from 'convex/react'
+import { useAuthActions } from '@convex-dev/auth/react'
 import { Users, Clock, BarChart3, LogOut, Building2, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAdminStore } from '@/Stores/AdminStore'
@@ -18,14 +19,14 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { isSignedIn, isLoaded } = useAuth()
-  const { signOut } = useClerk()
+  const { isAuthenticated, isLoading } = useConvexAuth()
+  const { signOut } = useAuthActions()
   const navigate = useNavigate()
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useAdminStore()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
-  // Close sidebar on mobile when navigating
+  // Cerrar sidebar en mobile al navegar
   useEffect(() => {
     if (window.innerWidth < 768) {
       setSidebarOpen(false)
@@ -33,16 +34,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, [currentPath, setSidebarOpen])
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn && currentPath !== '/admin/login') {
+    if (!isLoading && !isAuthenticated && currentPath !== '/admin/login') {
       navigate({ to: '/admin/login' })
     }
-  }, [isSignedIn, isLoaded, navigate, currentPath])
+  }, [isAuthenticated, isLoading, navigate, currentPath])
 
   if (currentPath === '/admin/login') {
     return <>{children}</>
   }
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div
@@ -53,7 +54,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     )
   }
 
-  if (!isSignedIn) return null
+  if (!isAuthenticated) return null
 
   async function handleSignOut() {
     await signOut()
