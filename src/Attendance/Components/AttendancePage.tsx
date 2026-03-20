@@ -1,6 +1,6 @@
 import { useQuery } from 'convex/react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Clock, X, Building2 } from 'lucide-react'
+import { Clock, X, Building2, LogIn, LogOut, Timer } from 'lucide-react'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,10 +9,56 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/Shared/Components/PageHeader'
 import { LoadingSpinner } from '@/Shared/Components/LoadingSpinner'
-import { AttendanceBadge } from './AttendanceBadge'
 import { formatDate, formatTimeWithSeconds, dayBoundsUTC, todayInArgentina } from '@/Shared/Lib/DateUtils'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+
+type RawRecord = {
+  _id: string
+  employeeId: string
+  employee?: { name: string } | null
+  type: 'entry' | 'exit'
+  timestamp: number
+  faceConfidence: number
+}
+
+type DayRow = {
+  key: string
+  employeeName: string
+  date: string
+  entry: RawRecord | null
+  exit: RawRecord | null
+}
+
+function groupRecords(records: RawRecord[]): DayRow[] {
+  const map: Record<string, DayRow> = {}
+  for (const r of records) {
+    const date = formatDate(r.timestamp)
+    const key = `${r.employeeId}-${date}`
+    if (!map[key]) {
+      map[key] = { key, employeeName: r.employee?.name ?? '—', date, entry: null, exit: null }
+    }
+    if (r.type === 'entry') {
+      // keep earliest entry
+      if (!map[key].entry || r.timestamp < map[key].entry!.timestamp) map[key].entry = r
+    } else {
+      // keep latest exit
+      if (!map[key].exit || r.timestamp > map[key].exit!.timestamp) map[key].exit = r
+    }
+  }
+  return Object.values(map).sort((a, b) => {
+    const ta = a.entry?.timestamp ?? a.exit?.timestamp ?? 0
+    const tb = b.entry?.timestamp ?? b.exit?.timestamp ?? 0
+    return tb - ta
+  })
+}
+
+function formatHours(ms: number) {
+  const totalMin = Math.floor(ms / 60000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
 
 export function AttendancePage() {
   const navigate = useNavigate()
@@ -158,32 +204,80 @@ export function AttendancePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Empleado</TableHead>
-                <TableHead>Tipo</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Hora</TableHead>
-                <TableHead className="text-right">Confianza</TableHead>
+                <TableHead>
+                  <span className="flex items-center gap-1.5 text-green-600">
+                    <LogIn size={14} /> Entrada
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="flex items-center gap-1.5 text-orange-500">
+                    <LogOut size={14} /> Salida
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="flex items-center gap-1.5 text-gray-500">
+                    <Timer size={14} /> Horas
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {records.map((record) => (
-                <TableRow key={record._id}>
-                  <TableCell className="font-medium">
-                    {record.employee?.name ?? '—'}
-                  </TableCell>
-                  <TableCell>
-                    <AttendanceBadge type={record.type} />
-                  </TableCell>
-                  <TableCell className="text-gray-600">
-                    {formatDate(record.timestamp)}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm text-gray-600">
-                    {formatTimeWithSeconds(record.timestamp)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm text-gray-400">
-                    {(record.faceConfidence * 100).toFixed(0)}%
-                  </TableCell>
-                </TableRow>
-              ))}
+              {groupRecords(records as RawRecord[]).map((row) => {
+                const worked =
+                  row.entry && row.exit ? row.exit.timestamp - row.entry.timestamp : null
+                return (
+                  <TableRow key={row.key}>
+                    <TableCell className="font-medium">{row.employeeName}</TableCell>
+                    <TableCell className="text-gray-500 text-sm">{row.date}</TableCell>
+
+                    {/* Entrada */}
+                    <TableCell>
+                      {row.entry ? (
+                        <div className="flex flex-col">
+                          <span className="font-mono text-sm text-gray-800">
+                            {formatTimeWithSeconds(row.entry.timestamp)}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {(row.entry.faceConfidence * 100).toFixed(0)}% confianza
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </TableCell>
+
+                    {/* Salida */}
+                    <TableCell>
+                      {row.exit ? (
+                        <div className="flex flex-col">
+                          <span className="font-mono text-sm text-gray-800">
+                            {formatTimeWithSeconds(row.exit.timestamp)}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {(row.exit.faceConfidence * 100).toFixed(0)}% confianza
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
+                          En turno
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Horas */}
+                    <TableCell>
+                      {worked !== null ? (
+                        <span className="text-sm font-medium text-gray-700">
+                          {formatHours(worked)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>
