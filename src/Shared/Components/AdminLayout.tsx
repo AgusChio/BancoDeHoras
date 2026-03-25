@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useConvexAuth } from 'convex/react'
 import { useAuthActions } from '@convex-dev/auth/react'
@@ -25,6 +25,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useAdminStore()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+  const [authTimedOut, setAuthTimedOut] = useState(false)
+
+  // Si después de 7s sigue cargando, asumir no autenticado y redirigir a login
+  useEffect(() => {
+    if (!isLoading) { setAuthTimedOut(false); return }
+    const t = setTimeout(() => setAuthTimedOut(true), 7000)
+    return () => clearTimeout(t)
+  }, [isLoading])
+
+  const effectivelyLoading = isLoading && !authTimedOut
 
   // Cerrar sidebar en mobile al navegar
   useEffect(() => {
@@ -34,16 +44,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, [currentPath, setSidebarOpen])
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && currentPath !== '/admin/login') {
+    if (!effectivelyLoading && !isAuthenticated && currentPath !== '/admin/login') {
       navigate({ to: '/admin/login' })
     }
-  }, [isAuthenticated, isLoading, navigate, currentPath])
+  }, [isAuthenticated, effectivelyLoading, navigate, currentPath])
 
   if (currentPath === '/admin/login') {
     return <>{children}</>
   }
 
-  if (isLoading) {
+  if (effectivelyLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div
