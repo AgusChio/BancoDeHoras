@@ -23,6 +23,7 @@ export function LoginForm() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<Mode>('auto')
+  const [fieldError, setFieldError] = useState<string | null>(null)
 
   const isSignUp = mode === 'signUp' || (mode === 'auto' && hasAdmin === false)
   const isForgot = mode === 'forgot'
@@ -33,6 +34,7 @@ export function LoginForm() {
     setPassword('')
     setNewPassword('')
     setCode('')
+    setFieldError(null)
     setMode(nextMode)
   }
 
@@ -61,16 +63,35 @@ export function LoginForm() {
       })
       navigate({ to: '/admin/employees' })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido'
-      if (msg.includes('InvalidSecret') || msg.includes('invalid') || msg.includes('credentials')) {
-        toast.error('Email o contraseña incorrectos')
-      } else if (msg.includes('already exists') || msg.includes('duplicate')) {
-        toast.error('Ya existe un administrador registrado')
-      } else if (msg.includes('expired') || msg.includes('invalid_token')) {
-        toast.error('Código inválido o expirado')
+      const msg = err instanceof Error ? err.message : String(err)
+      const lower = msg.toLowerCase()
+
+      let userMsg: string
+      if (
+        lower.includes('invalidsecret') || lower.includes('invalid secret') ||
+        lower.includes('invalidaccountid') || lower.includes('invalid account') ||
+        lower.includes('not found') || lower.includes('no account') ||
+        lower.includes('wrong password') || lower.includes('incorrect') ||
+        lower.includes('credentials') || lower.includes('unauthorized') ||
+        lower.includes('invalid') || lower.includes('failed to sign') ||
+        lower.includes('server error') || lower.includes('convexerror')
+      ) {
+        userMsg = isForgotCode
+          ? 'Código inválido o expirado. Solicitá uno nuevo.'
+          : isForgot
+          ? 'No existe ninguna cuenta con ese email.'
+          : 'Email o contraseña incorrectos.'
+      } else if (lower.includes('already exists') || lower.includes('duplicate')) {
+        userMsg = 'Ya existe un administrador registrado.'
+      } else if (lower.includes('expired') || lower.includes('invalid_token')) {
+        userMsg = 'Código inválido o expirado.'
+      } else if (lower.includes('weak') || lower.includes('short') || lower.includes('length')) {
+        userMsg = 'La contraseña debe tener al menos 8 caracteres.'
       } else {
-        toast.error(msg)
+        userMsg = 'Email o contraseña incorrectos.'
       }
+
+      setFieldError(userMsg)
     } finally {
       setLoading(false)
     }
@@ -140,7 +161,7 @@ export function LoginForm() {
                 type="email"
                 placeholder="admin@empresa.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFieldError(null) }}
                 required
                 autoComplete="email"
                 disabled={isForgotCode}
@@ -156,7 +177,7 @@ export function LoginForm() {
                   type="password"
                   placeholder={isSignUp ? 'Mínimo 8 caracteres' : '••••••••'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setFieldError(null) }}
                   required
                   minLength={isSignUp ? 8 : undefined}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
@@ -209,6 +230,10 @@ export function LoginForm() {
               {loading && <Loader2 size={16} className="animate-spin mr-2" />}
               {loading ? 'Procesando...' : button}
             </Button>
+
+            {fieldError && (
+              <p className="text-sm text-red-500 text-center -mt-1">{fieldError}</p>
+            )}
 
             {/* Links de navegación */}
             {!isForgot && !isForgotCode && (
