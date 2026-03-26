@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from 'convex/react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Clock, X, Building2, LogIn, LogOut, Timer, Trash2 } from 'lucide-react'
+import { Clock, X, Building2, LogIn, LogOut, Timer, Trash2, PlusCircle } from 'lucide-react'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -95,6 +95,27 @@ export function AttendancePage() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [saving, setSaving] = useState(false)
 
+  type NewRecordState = { employeeId: Id<'employees'>; type: 'entry' | 'exit'; date: string; time: string }
+  const [newRecord, setNewRecord] = useState<NewRecordState | null>(null)
+  const [newSaving, setNewSaving] = useState(false)
+
+  async function handleNewRecord() {
+    if (!newRecord || !newRecord.employeeId) return
+    setNewSaving(true)
+    try {
+      const [y, m, d] = newRecord.date.split('-').map(Number)
+      const [hh, mm] = newRecord.time.split(':').map(Number)
+      const ts = new Date(y, m - 1, d, hh, mm, 0).getTime()
+      await adminManualRecord({ employeeId: newRecord.employeeId, type: newRecord.type, timestamp: ts })
+      toast.success(newRecord.type === 'entry' ? 'Entrada registrada' : 'Salida registrada')
+      setNewRecord(null)
+    } catch {
+      toast.error('Error al guardar')
+    } finally {
+      setNewSaving(false)
+    }
+  }
+
   const allEmployees = useQuery(
     api.employees.listAll,
     selectedBusinessId ? { businessId: selectedBusinessId as Id<'businesses'> } : 'skip'
@@ -166,6 +187,18 @@ export function AttendancePage() {
       <PageHeader
         title="Asistencia"
         description="Registros de entrada y salida"
+        action={
+          selectedBusinessId && allEmployees && allEmployees.length > 0 ? (
+            <Button
+              onClick={() => setNewRecord({ employeeId: '' as Id<'employees'>, type: 'entry', ...nowDatetime() })}
+              style={{ backgroundColor: 'oklch(0.60 0.20 270)' }}
+              className="text-white gap-2"
+            >
+              <PlusCircle size={16} />
+              Registrar turno
+            </Button>
+          ) : undefined
+        }
       />
 
       {/* Filters */}
@@ -435,6 +468,89 @@ export function AttendancePage() {
               style={!dialog?.deleteId ? { backgroundColor: 'oklch(0.60 0.20 270)' } : undefined}
             >
               {saving ? 'Guardando...' : dialog?.deleteId ? 'Eliminar' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog — Nuevo registro manual (cualquier empleado) */}
+      <Dialog open={!!newRecord} onOpenChange={(open) => !open && setNewRecord(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Registrar turno manual</DialogTitle>
+          </DialogHeader>
+
+          {newRecord && (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-gray-500">Empleado</Label>
+                <Select
+                  value={newRecord.employeeId}
+                  onValueChange={(v) => setNewRecord({ ...newRecord, employeeId: v as Id<'employees'> })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccioná un empleado">
+                      {newRecord.employeeId
+                        ? (allEmployees?.find((e) => e._id === newRecord.employeeId)?.name ?? 'Cargando...')
+                        : 'Seleccioná un empleado'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allEmployees?.map((e) => (
+                      <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-gray-500">Tipo</Label>
+                <Select
+                  value={newRecord.type}
+                  onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'entry' | 'exit' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="entry">Entrada</SelectItem>
+                    <SelectItem value="exit">Salida</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label className="text-xs text-gray-500">Fecha</Label>
+                  <Input
+                    type="date"
+                    value={newRecord.date}
+                    onChange={(e) => setNewRecord({ ...newRecord, date: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label className="text-xs text-gray-500">Hora</Label>
+                  <Input
+                    type="time"
+                    value={newRecord.time}
+                    onChange={(e) => setNewRecord({ ...newRecord, time: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setNewRecord(null)} disabled={newSaving}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleNewRecord}
+              disabled={newSaving || !newRecord?.employeeId}
+              className="text-white"
+              style={{ backgroundColor: 'oklch(0.60 0.20 270)' }}
+            >
+              {newSaving ? 'Guardando...' : 'Guardar'}
             </Button>
           </DialogFooter>
         </DialogContent>
