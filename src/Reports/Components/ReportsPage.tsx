@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from 'convex/react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { BarChart3, ChevronDown, ChevronRight, X, Building2 } from 'lucide-react'
+import { BarChart3, ChevronDown, ChevronRight, X, Building2, FileDown } from 'lucide-react'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/Shared/Components/PageHeader'
 import { LoadingSpinner } from '@/Shared/Components/LoadingSpinner'
 import { formatDuration, formatDate, formatTime, dayBoundsUTC } from '@/Shared/Lib/DateUtils'
+import { isFeriado } from '@/Shared/Lib/Holidays'
+import { generateEmployeePdf } from '../Lib/generatePdf'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -23,6 +25,15 @@ function getDefaultDates() {
     from: `${year}-${month}-01`,
     to: `${year}-${month}-${day}`,
   }
+}
+
+function getScheduledMs(date: string, schedule: { dayOfWeek: number; startTime: string; endTime: string }[]): number {
+  const dow = new Date(date + 'T12:00:00-03:00').getDay()
+  const slot = schedule.find((s) => s.dayOfWeek === dow)
+  if (!slot) return 0
+  const [sh, sm] = slot.startTime.split(':').map(Number)
+  const [eh, em] = slot.endTime.split(':').map(Number)
+  return ((eh * 60 + em) - (sh * 60 + sm)) * 60000
 }
 
 export function ReportsPage() {
@@ -148,6 +159,7 @@ export function ReportsPage() {
                 <TableHead className="text-center">Días</TableHead>
                 <TableHead className="text-center">Total horas</TableHead>
                 <TableHead className="text-center">Promedio/día</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,6 +191,20 @@ export function ReportsPage() {
                       <TableCell className="text-center text-gray-600">
                         {report.workDays > 0 ? formatDuration(avgMs) : '—'}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Descargar PDF"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            generateEmployeePdf(report, fromDate, toDate)
+                          }}
+                        >
+                          <FileDown size={15} className="text-gray-400 hover:text-indigo-600" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
                     {isExpanded &&
@@ -186,15 +212,26 @@ export function ReportsPage() {
                         const sortedEntries = [...day.entries].sort((a, b) => a - b)
                         const sortedExits = [...day.exits].sort((a, b) => a - b)
                         const pairs = Math.max(sortedEntries.length, sortedExits.length)
+                        const feriado = isFeriado(day.date)
+
+                        const scheduledMs = getScheduledMs(day.date, report.workSchedule ?? [])
+                        const extraMs = scheduledMs > 0 && !day.inProgress ? Math.max(0, day.totalMs - scheduledMs) : 0
 
                         return (
-                          <TableRow key={day.date} className="bg-gray-50/60 hover:bg-gray-50">
+                          <TableRow key={day.date} className={`hover:bg-gray-50 ${feriado ? 'bg-red-50/40' : 'bg-gray-50/60'}`}>
                             <TableCell />
                             {/* Fecha */}
                             <TableCell className="pl-8">
-                              <span className="text-sm font-medium text-gray-600">
-                                {formatDate(new Date(`${day.date}T12:00:00-03:00`).getTime())}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-600">
+                                  {formatDate(new Date(`${day.date}T12:00:00-03:00`).getTime())}
+                                </span>
+                                {feriado && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium shrink-0">
+                                    {feriado}
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
                             {/* Turnos: entrada → salida por cada par */}
                             <TableCell colSpan={2}>
@@ -234,13 +271,19 @@ export function ReportsPage() {
                               {day.inProgress ? (
                                 <span className="text-xs" style={{ color: 'oklch(0.75 0.18 60)' }}>En curso</span>
                               ) : day.totalMs > 0 ? (
-                                <span className="text-sm font-semibold" style={{ color: 'oklch(0.65 0.15 250)' }}>
-                                  {formatDuration(day.totalMs)}
-                                </span>
+                                <div>
+                                  <span className="text-sm font-semibold" style={{ color: 'oklch(0.65 0.15 250)' }}>
+                                    {formatDuration(day.totalMs)}
+                                  </span>
+                                  {extraMs > 0 && (
+                                    <div className="text-xs text-orange-500 font-medium">+{formatDuration(extraMs)} extra</div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-gray-300 text-sm">—</span>
                               )}
                             </TableCell>
+                            <TableCell />
                           </TableRow>
                         )
                       })}

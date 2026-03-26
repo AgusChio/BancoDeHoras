@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { Link } from '@tanstack/react-router'
-import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2 } from 'lucide-react'
+import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2, Clock } from 'lucide-react'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +24,10 @@ type Employee = {
   isActive: boolean
   faceDescriptors: number[][]
   createdAt: number
+  workSchedule?: { dayOfWeek: number; startTime: string; endTime: string }[]
 }
+
+const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 export function EmployeeList() {
   const { businesses, selectedBusinessId, setSelectedBusinessId, showSelector } = useAutoSelectBusiness()
@@ -38,6 +41,7 @@ export function EmployeeList() {
   const activate = useMutation(api.employees.activate)
   const update = useMutation(api.employees.update)
   const deleteEmployee = useMutation(api.employees.deleteEmployee)
+  const updateSchedule = useMutation(api.employees.updateSchedule)
 
   const [editTarget, setEditTarget] = useState<Employee | null>(null)
   const [editName, setEditName] = useState('')
@@ -46,6 +50,10 @@ export function EmployeeList() {
 
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const [scheduleTarget, setScheduleTarget] = useState<Employee | null>(null)
+  const [scheduleSlots, setScheduleSlots] = useState<{ dayOfWeek: number; startTime: string; endTime: string; enabled: boolean }[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(false)
 
   function openEdit(emp: Employee) {
     setEditTarget(emp)
@@ -92,6 +100,34 @@ export function EmployeeList() {
       }
     } catch {
       toast.error('Error al actualizar empleado')
+    }
+  }
+
+  function openSchedule(emp: Employee) {
+    const existing = emp.workSchedule ?? []
+    setScheduleSlots(
+      [0, 1, 2, 3, 4, 5, 6].map((d) => {
+        const slot = existing.find((s) => s.dayOfWeek === d)
+        return { dayOfWeek: d, startTime: slot?.startTime ?? '09:00', endTime: slot?.endTime ?? '18:00', enabled: !!slot }
+      })
+    )
+    setScheduleTarget(emp)
+  }
+
+  async function handleSaveSchedule() {
+    if (!scheduleTarget) return
+    setScheduleLoading(true)
+    try {
+      const workSchedule = scheduleSlots
+        .filter((s) => s.enabled)
+        .map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }))
+      await updateSchedule({ id: scheduleTarget._id, workSchedule })
+      toast.success('Horario guardado')
+      setScheduleTarget(null)
+    } catch {
+      toast.error('Error al guardar horario')
+    } finally {
+      setScheduleLoading(false)
     }
   }
 
@@ -222,6 +258,16 @@ export function EmployeeList() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  onClick={() => openSchedule(employee)}
+                  title="Horario"
+                >
+                  <Clock size={15} className="text-gray-400" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => handleToggleActive(employee._id, employee.isActive)}
                   title={employee.isActive ? 'Desactivar' : 'Activar'}
                 >
@@ -302,6 +348,61 @@ export function EmployeeList() {
               disabled={deleteLoading}
             >
               {deleteLoading ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog — Horario */}
+      <Dialog open={!!scheduleTarget} onOpenChange={(open) => { if (!open) setScheduleTarget(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Horario laboral — {scheduleTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-2 max-h-96 overflow-y-auto">
+            {scheduleSlots.map((slot, i) => (
+              <div key={slot.dayOfWeek} className={`flex items-center gap-3 p-2 rounded-lg border ${slot.enabled ? 'border-indigo-200 bg-indigo-50/40' : 'border-gray-100'}`}>
+                <input
+                  type="checkbox"
+                  checked={slot.enabled}
+                  onChange={(e) => {
+                    const next = [...scheduleSlots]
+                    next[i] = { ...slot, enabled: e.target.checked }
+                    setScheduleSlots(next)
+                  }}
+                  className="w-4 h-4 accent-indigo-600"
+                />
+                <span className="w-20 text-sm font-medium text-gray-700">{DAY_NAMES[slot.dayOfWeek]}</span>
+                <Input
+                  type="time"
+                  value={slot.startTime}
+                  disabled={!slot.enabled}
+                  onChange={(e) => {
+                    const next = [...scheduleSlots]
+                    next[i] = { ...slot, startTime: e.target.value }
+                    setScheduleSlots(next)
+                  }}
+                  className="w-28 text-sm h-8"
+                />
+                <span className="text-gray-400 text-sm">→</span>
+                <Input
+                  type="time"
+                  value={slot.endTime}
+                  disabled={!slot.enabled}
+                  onChange={(e) => {
+                    const next = [...scheduleSlots]
+                    next[i] = { ...slot, endTime: e.target.value }
+                    setScheduleSlots(next)
+                  }}
+                  className="w-28 text-sm h-8"
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleTarget(null)}>Cancelar</Button>
+            <Button onClick={handleSaveSchedule} disabled={scheduleLoading} style={{ backgroundColor: 'oklch(0.60 0.20 270)' }} className="text-white">
+              {scheduleLoading ? 'Guardando...' : 'Guardar horario'}
             </Button>
           </DialogFooter>
         </DialogContent>

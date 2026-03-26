@@ -175,3 +175,18 @@ export const getPhotoUrl = query({
     return await ctx.storage.getUrl(storageId)
   },
 })
+
+export const updateSchedule = mutation({
+  args: {
+    id: v.id('employees'),
+    workSchedule: v.array(v.object({
+      dayOfWeek: v.number(),
+      startTime: v.string(),
+      endTime: v.string(),
+    })),
+  },
+  handler: async (ctx, { id, workSchedule }) => {
+    await requireAuth(ctx)
+    await ctx.db.patch(id, { workSchedule, updatedAt: Date.now() })
+  },
+})

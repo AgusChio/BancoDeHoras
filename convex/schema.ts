@@ -20,6 +20,11 @@ export default defineSchema({
     isActive: v.boolean(),
     faceDescriptors: v.array(v.array(v.float64())),
     photoStorageId: v.optional(v.id('_storage')),
+    workSchedule: v.optional(v.array(v.object({
+      dayOfWeek: v.number(),  // 0=Sunday, 1=Monday, ..., 6=Saturday
+      startTime: v.string(),  // "HH:MM"
+      endTime: v.string(),    // "HH:MM"
+    }))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

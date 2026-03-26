@@ -21,6 +21,7 @@ export interface EmployeeReport {
   totalMs: number
   workDays: number
   days: DayRecord[]
+  workSchedule: { dayOfWeek: number; startTime: string; endTime: string }[]
 }
 
 /** Calcula horas trabajadas por empleado en un rango UTC, filtrado por negocio */
@@ -100,6 +101,7 @@ export const hoursByEmployee = query({
         totalMs,
         workDays: days.filter((d) => d.totalMs > 0).length,
         days,
+        workSchedule: employee.workSchedule ?? [],
       })
     }
 
