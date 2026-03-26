@@ -1,17 +1,20 @@
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Clock, X, Building2, LogIn, LogOut, Timer } from 'lucide-react'
+import { useState } from 'react'
+import { Clock, X, Building2, LogIn, LogOut, Timer, Trash2 } from 'lucide-react'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { PageHeader } from '@/Shared/Components/PageHeader'
 import { LoadingSpinner } from '@/Shared/Components/LoadingSpinner'
 import { formatDate, formatTimeWithSeconds, dayBoundsUTC, todayInArgentina } from '@/Shared/Lib/DateUtils'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { toast } from 'sonner'
 
 type RawRecord = {
   _id: string
@@ -24,6 +27,7 @@ type RawRecord = {
 
 type DayRow = {
   key: string
+  employeeId: Id<'employees'>
   employeeName: string
   date: string
   entry: RawRecord | null
@@ -36,7 +40,7 @@ function groupRecords(records: RawRecord[]): DayRow[] {
     const date = formatDate(r.timestamp)
     const key = `${r.employeeId}-${date}`
     if (!map[key]) {
-      map[key] = { key, employeeName: r.employee?.name ?? '—', date, entry: null, exit: null }
+      map[key] = { key, employeeId: r.employeeId as Id<'employees'>, employeeName: r.employee?.name ?? '—', date, entry: null, exit: null }
     }
     if (r.type === 'entry') {
       // keep earliest entry
@@ -60,12 +64,36 @@ function formatHours(ms: number) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
+type DialogState = {
+  employeeId: Id<'employees'>
+  employeeName: string
+  type: 'entry' | 'exit'
+  // pre-fill date+time to now
+  date: string
+  time: string
+  // record id to delete (for delete mode)
+  deleteId?: string
+  deleteLabel?: string
+}
+
+function nowDatetime() {
+  const now = new Date()
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toTimeString().slice(0, 5)
+  return { date, time }
+}
+
 export function AttendancePage() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/admin/attendance/' })
   const { desde, hasta, empleadoId } = search
 
   const { businesses, selectedBusinessId, setSelectedBusinessId, showSelector } = useAutoSelectBusiness()
+  const adminManualRecord = useMutation(api.attendance.adminManualRecord)
+  const adminDeleteRecord = useMutation(api.attendance.adminDeleteRecord)
+
+  const [dialog, setDialog] = useState<DialogState | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const allEmployees = useQuery(
     api.employees.listAll,
@@ -89,6 +117,36 @@ export function AttendancePage() {
         }
       : 'skip'
   )
+
+  function openManualDialog(employeeId: Id<'employees'>, employeeName: string, type: 'entry' | 'exit') {
+    setDialog({ employeeId, employeeName, type, ...nowDatetime() })
+  }
+
+  function openDeleteDialog(recordId: string, label: string) {
+    setDialog({ employeeId: '' as Id<'employees'>, employeeName: '', type: 'exit', ...nowDatetime(), deleteId: recordId, deleteLabel: label })
+  }
+
+  async function handleSave() {
+    if (!dialog) return
+    setSaving(true)
+    try {
+      if (dialog.deleteId) {
+        await adminDeleteRecord({ recordId: dialog.deleteId as Id<'attendanceRecords'> })
+        toast.success('Registro eliminado')
+      } else {
+        const [y, m, d] = dialog.date.split('-').map(Number)
+        const [hh, mm] = dialog.time.split(':').map(Number)
+        const ts = new Date(y, m - 1, d, hh, mm, 0).getTime()
+        await adminManualRecord({ employeeId: dialog.employeeId, type: dialog.type, timestamp: ts })
+        toast.success(dialog.type === 'entry' ? 'Entrada registrada' : 'Salida registrada')
+      }
+      setDialog(null)
+    } catch {
+      toast.error('Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function setSearch(params: Record<string, string | undefined>) {
     navigate({
@@ -220,6 +278,7 @@ export function AttendancePage() {
                     <Timer size={14} /> Horas
                   </span>
                 </TableHead>
+                <TableHead className="w-32">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,13 +293,22 @@ export function AttendancePage() {
                     {/* Entrada */}
                     <TableCell>
                       {row.entry ? (
-                        <div className="flex flex-col">
-                          <span className="font-mono text-sm text-gray-800">
-                            {formatTimeWithSeconds(row.entry.timestamp)}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {(row.entry.faceConfidence * 100).toFixed(0)}% confianza
-                          </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm text-gray-800">
+                              {formatTimeWithSeconds(row.entry.timestamp)}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {row.entry.deviceInfo === 'admin-manual' ? 'manual' : `${(row.entry.faceConfidence * 100).toFixed(0)}% confianza`}
+                            </span>
+                          </div>
+                          <button
+                            className="text-gray-300 hover:text-red-400 transition-colors ml-1"
+                            title="Eliminar entrada"
+                            onClick={() => openDeleteDialog(row.entry!._id, `entrada de ${row.employeeName}`)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       ) : (
                         <span className="text-gray-300">—</span>
@@ -250,13 +318,22 @@ export function AttendancePage() {
                     {/* Salida */}
                     <TableCell>
                       {row.exit ? (
-                        <div className="flex flex-col">
-                          <span className="font-mono text-sm text-gray-800">
-                            {formatTimeWithSeconds(row.exit.timestamp)}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {(row.exit.faceConfidence * 100).toFixed(0)}% confianza
-                          </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm text-gray-800">
+                              {formatTimeWithSeconds(row.exit.timestamp)}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {row.exit.deviceInfo === 'admin-manual' ? 'manual' : `${(row.exit.faceConfidence * 100).toFixed(0)}% confianza`}
+                            </span>
+                          </div>
+                          <button
+                            className="text-gray-300 hover:text-red-400 transition-colors ml-1"
+                            title="Eliminar salida"
+                            onClick={() => openDeleteDialog(row.exit!._id, `salida de ${row.employeeName}`)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       ) : (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
@@ -275,6 +352,32 @@ export function AttendancePage() {
                         <span className="text-gray-300">—</span>
                       )}
                     </TableCell>
+
+                    {/* Acciones */}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {!row.entry && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50"
+                            onClick={() => openManualDialog(row.employeeId, row.employeeName, 'entry')}
+                          >
+                            <LogIn size={11} /> Entrada
+                          </Button>
+                        )}
+                        {!row.exit && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-orange-500 border-orange-200 hover:bg-orange-50"
+                            onClick={() => openManualDialog(row.employeeId, row.employeeName, 'exit')}
+                          >
+                            <LogOut size={11} /> Cerrar turno
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -282,6 +385,60 @@ export function AttendancePage() {
           </Table>
         </div>
       )}
+
+      {/* Dialog manual record / delete */}
+      <Dialog open={!!dialog} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {dialog?.deleteId
+                ? `Eliminar ${dialog.deleteLabel}`
+                : `Registrar ${dialog?.type === 'entry' ? 'entrada' : 'salida'} — ${dialog?.employeeName}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          {dialog && !dialog.deleteId && (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-gray-500">Fecha</Label>
+                <Input
+                  type="date"
+                  value={dialog.date}
+                  onChange={(e) => setDialog({ ...dialog, date: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-gray-500">Hora</Label>
+                <Input
+                  type="time"
+                  value={dialog.time}
+                  onChange={(e) => setDialog({ ...dialog, time: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          {dialog?.deleteId && (
+            <p className="text-sm text-gray-500 py-2">
+              ¿Confirmás que querés eliminar este registro? Esta acción no se puede deshacer.
+            </p>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className={dialog?.deleteId ? 'bg-red-500 hover:bg-red-600 text-white' : 'text-white'}
+              style={!dialog?.deleteId ? { backgroundColor: 'oklch(0.60 0.20 270)' } : undefined}
+            >
+              {saving ? 'Guardando...' : dialog?.deleteId ? 'Eliminar' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

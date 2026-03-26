@@ -47,6 +47,34 @@ export const getLastRecord = query({
   },
 })
 
+/** Admin: inserta manualmente un registro de entrada o salida */
+export const adminManualRecord = mutation({
+  args: {
+    employeeId: v.id('employees'),
+    type: v.union(v.literal('entry'), v.literal('exit')),
+    timestamp: v.number(),
+  },
+  handler: async (ctx, { employeeId, type, timestamp }) => {
+    await requireAuth(ctx)
+    await ctx.db.insert('attendanceRecords', {
+      employeeId,
+      type,
+      timestamp,
+      faceConfidence: 1,
+      deviceInfo: 'admin-manual',
+    })
+  },
+})
+
+/** Admin: elimina un registro por id */
+export const adminDeleteRecord = mutation({
+  args: { recordId: v.id('attendanceRecords') },
+  handler: async (ctx, { recordId }) => {
+    await requireAuth(ctx)
+    await ctx.db.delete(recordId)
+  },
+})
+
 /** Lista registros en un rango de timestamps UTC, filtrado por negocio y opcionalmente por empleado */
 export const listByDateRange = query({
   args: {
