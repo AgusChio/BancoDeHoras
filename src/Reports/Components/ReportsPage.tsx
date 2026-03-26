@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/Shared/Components/PageHeader'
 import { LoadingSpinner } from '@/Shared/Components/LoadingSpinner'
-import { formatDuration, formatDate, dayBoundsUTC } from '@/Shared/Lib/DateUtils'
+import { formatDuration, formatDate, formatTime, dayBoundsUTC } from '@/Shared/Lib/DateUtils'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -145,7 +145,7 @@ export function ReportsPage() {
               <TableRow>
                 <TableHead className="w-8" />
                 <TableHead>Empleado</TableHead>
-                <TableHead className="text-center">Días trabajados</TableHead>
+                <TableHead className="text-center">Días</TableHead>
                 <TableHead className="text-center">Total horas</TableHead>
                 <TableHead className="text-center">Promedio/día</TableHead>
               </TableRow>
@@ -182,26 +182,68 @@ export function ReportsPage() {
                     </TableRow>
 
                     {isExpanded &&
-                      report.days.map((day) => (
-                        <TableRow key={day.date} className="bg-gray-50">
-                          <TableCell />
-                          <TableCell className="pl-8 text-sm text-gray-500">
-                            {formatDate(new Date(`${day.date}T12:00:00-03:00`).getTime())}
-                          </TableCell>
-                          <TableCell />
-                          <TableCell className="text-center text-sm text-gray-600">
-                            {day.inProgress ? (
-                              <span style={{ color: 'oklch(0.75 0.18 60)' }}>En curso</span>
-                            ) : (
-                              formatDuration(day.totalMs)
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center text-xs text-gray-400">
-                            {day.entries.length} entrada{day.entries.length !== 1 ? 's' : ''},
-                            {' '}{day.exits.length} salida{day.exits.length !== 1 ? 's' : ''}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      report.days.map((day) => {
+                        const sortedEntries = [...day.entries].sort((a, b) => a - b)
+                        const sortedExits = [...day.exits].sort((a, b) => a - b)
+                        const pairs = Math.max(sortedEntries.length, sortedExits.length)
+
+                        return (
+                          <TableRow key={day.date} className="bg-gray-50/60 hover:bg-gray-50">
+                            <TableCell />
+                            {/* Fecha */}
+                            <TableCell className="pl-8">
+                              <span className="text-sm font-medium text-gray-600">
+                                {formatDate(new Date(`${day.date}T12:00:00-03:00`).getTime())}
+                              </span>
+                            </TableCell>
+                            {/* Turnos: entrada → salida por cada par */}
+                            <TableCell colSpan={2}>
+                              <div className="flex flex-col gap-1">
+                                {Array.from({ length: pairs }).map((_, i) => {
+                                  const entry = sortedEntries[i]
+                                  const exit = sortedExits[i]
+                                  const pairMs = entry && exit ? exit - entry : null
+                                  return (
+                                    <div key={i} className="flex items-center gap-2 text-sm">
+                                      {/* Entrada */}
+                                      <span className={`flex items-center gap-1 font-mono ${entry ? 'text-green-600' : 'text-gray-300'}`}>
+                                        {entry ? formatTime(entry) : '—:——'}
+                                      </span>
+                                      <span className="text-gray-300">→</span>
+                                      {/* Salida */}
+                                      {exit ? (
+                                        <span className="font-mono text-orange-500">{formatTime(exit)}</span>
+                                      ) : (
+                                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
+                                          En turno
+                                        </span>
+                                      )}
+                                      {/* Duración del par */}
+                                      {pairMs !== null && (
+                                        <span className="text-xs text-gray-400 ml-1">
+                                          ({formatDuration(pairMs)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </TableCell>
+                            {/* Total del día */}
+                            <TableCell className="text-center">
+                              {day.inProgress ? (
+                                <span className="text-xs" style={{ color: 'oklch(0.75 0.18 60)' }}>En curso</span>
+                              ) : day.totalMs > 0 ? (
+                                <span className="text-sm font-semibold" style={{ color: 'oklch(0.65 0.15 250)' }}>
+                                  {formatDuration(day.totalMs)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300 text-sm">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                   </>
                 )
               })}
