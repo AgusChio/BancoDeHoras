@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { Link } from '@tanstack/react-router'
-import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2, Clock } from 'lucide-react'
+import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2, Clock, AlertTriangle } from 'lucide-react'
+import { FaceCaptureWizard } from './FaceCaptureWizard'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +53,7 @@ export function EmployeeList() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const [scheduleTarget, setScheduleTarget] = useState<Employee | null>(null)
+  const [faceCaptureTarget, setFaceCaptureTarget] = useState<Employee | null>(null)
   const [scheduleSlots, setScheduleSlots] = useState<{ dayOfWeek: number; startTime: string; endTime: string; enabled: boolean }[]>([])
   const [scheduleLoading, setScheduleLoading] = useState(false)
 
@@ -226,23 +228,36 @@ export function EmployeeList() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <Badge
-                  variant="outline"
-                  className="text-xs gap-1"
-                  style={{
-                    borderColor: employee.faceDescriptors.length > 0 ? 'oklch(0.65 0.15 185)' : 'oklch(0.922 0 0)',
-                    color: employee.faceDescriptors.length > 0 ? 'oklch(0.45 0.15 185)' : 'oklch(0.556 0 0)',
-                  }}
-                >
-                  <Camera size={12} />
-                  {employee.faceDescriptors.length > 0
-                    ? `${employee.faceDescriptors.length} foto${employee.faceDescriptors.length > 1 ? 's' : ''}`
-                    : 'Sin foto'}
-                </Badge>
+                {employee.faceDescriptors.length > 0 ? (
+                  <Badge variant="outline" className="text-xs gap-1" style={{ borderColor: 'oklch(0.65 0.15 185)', color: 'oklch(0.45 0.15 185)' }}>
+                    <Camera size={12} />
+                    {employee.faceDescriptors.length} foto{employee.faceDescriptors.length > 1 ? 's' : ''}
+                  </Badge>
+                ) : (
+                  <button
+                    onClick={() => setFaceCaptureTarget(employee)}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-colors hover:bg-amber-50"
+                    style={{ borderColor: 'oklch(0.75 0.18 75)', color: 'oklch(0.55 0.18 75)' }}
+                    title="Sin fotos — no puede fichar. Click para configurar."
+                  >
+                    <AlertTriangle size={11} />
+                    Sin foto · Configurar
+                  </button>
+                )}
 
                 <span className="text-xs text-gray-400">
                   {formatDate(employee.createdAt)}
                 </span>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFaceCaptureTarget(employee)}
+                  title={employee.faceDescriptors.length > 0 ? 'Re-capturar cara' : 'Configurar reconocimiento facial'}
+                >
+                  <Camera size={15} className={employee.faceDescriptors.length === 0 ? 'text-amber-400' : 'text-gray-400'} />
+                </Button>
 
                 <Button
                   variant="ghost"
@@ -350,6 +365,25 @@ export function EmployeeList() {
               {deleteLoading ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog — Captura de cara */}
+      <Dialog open={!!faceCaptureTarget} onOpenChange={(open) => { if (!open) setFaceCaptureTarget(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {faceCaptureTarget?.faceDescriptors.length === 0
+                ? `Configurar reconocimiento facial — ${faceCaptureTarget?.name}`
+                : `Actualizar fotos — ${faceCaptureTarget?.name}`}
+            </DialogTitle>
+          </DialogHeader>
+          {faceCaptureTarget && (
+            <FaceCaptureWizard
+              existingEmployeeId={faceCaptureTarget._id}
+              onComplete={() => setFaceCaptureTarget(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

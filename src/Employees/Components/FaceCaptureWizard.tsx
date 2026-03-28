@@ -15,18 +15,24 @@ const STEPS = [
 ]
 
 interface FaceCaptureWizardProps {
-  businessId: Id<'businesses'>
-  name: string
-  documentId: string
+  // Modo creación
+  businessId?: Id<'businesses'>
+  name?: string
+  documentId?: string
+  // Modo re-captura para empleado existente
+  existingEmployeeId?: Id<'employees'>
   onComplete: () => void
 }
 
-export function FaceCaptureWizard({ businessId, name, documentId, onComplete }: FaceCaptureWizardProps) {
+export function FaceCaptureWizard({ businessId, name, documentId, existingEmployeeId, onComplete }: FaceCaptureWizardProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [captures, setCaptures] = useState<CapturedDescriptor[]>([])
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const createWithDescriptors = useMutation(api.employees.createWithDescriptors)
+  const setFaceDescriptors = useMutation(api.employees.setFaceDescriptors)
+
+  const isUpdateMode = !!existingEmployeeId
 
   async function handleCapture(data: CapturedDescriptor) {
     const newCaptures = [...captures, data]
@@ -38,9 +44,14 @@ export function FaceCaptureWizard({ businessId, name, documentId, onComplete }: 
       setSaving(true)
       try {
         const descriptors = newCaptures.map((c) => Array.from(c.descriptor))
-        await createWithDescriptors({ businessId, name, documentId, descriptors })
+        if (isUpdateMode) {
+          await setFaceDescriptors({ id: existingEmployeeId!, descriptors })
+          toast.success('Reconocimiento facial actualizado')
+        } else {
+          await createWithDescriptors({ businessId: businessId!, name: name!, documentId: documentId!, descriptors })
+          toast.success('Empleado creado con reconocimiento facial')
+        }
         setDone(true)
-        toast.success('Empleado creado con reconocimiento facial')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Error al guardar')
       } finally {
@@ -53,7 +64,7 @@ export function FaceCaptureWizard({ businessId, name, documentId, onComplete }: 
     return (
       <div className="flex flex-col items-center gap-4 py-8">
         <CheckCircle size={48} style={{ color: 'oklch(0.70 0.20 145)' }} />
-        <p className="font-medium text-gray-900">¡Empleado creado!</p>
+        <p className="font-medium text-gray-900">{isUpdateMode ? '¡Fotos actualizadas!' : '¡Empleado creado!'}</p>
         <p className="text-sm text-gray-500 text-center">
           Ya puede fichar usando reconocimiento facial.
         </p>
