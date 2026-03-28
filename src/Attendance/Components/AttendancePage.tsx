@@ -141,8 +141,19 @@ export function AttendancePage() {
       : 'skip'
   )
 
+  function scheduledTimeFor(employeeId: Id<'employees'>, type: 'entry' | 'exit', date: string): string {
+    const emp = allEmployees?.find((e) => e._id === employeeId)
+    if (!emp?.workSchedule?.length) return nowDatetime().time
+    const dow = new Date(`${date}T12:00:00-03:00`).getDay()
+    const slot = emp.workSchedule.find((s) => s.dayOfWeek === dow)
+    if (!slot) return nowDatetime().time
+    return type === 'entry' ? slot.startTime : slot.endTime
+  }
+
   function openManualDialog(employeeId: Id<'employees'>, employeeName: string, type: 'entry' | 'exit') {
-    setDialog({ employeeId, employeeName, type, ...nowDatetime() })
+    const date = nowDatetime().date
+    const time = scheduledTimeFor(employeeId, type, date)
+    setDialog({ employeeId, employeeName, type, date, time })
   }
 
   function openDeleteDialog(recordId: string, label: string) {
@@ -529,7 +540,11 @@ export function AttendancePage() {
                 <Label className="text-xs text-gray-500">Empleado</Label>
                 <Select
                   value={newRecord.employeeId}
-                  onValueChange={(v) => setNewRecord({ ...newRecord, employeeId: v as Id<'employees'> })}
+                  onValueChange={(v) => {
+                    const empId = v as Id<'employees'>
+                    const time = scheduledTimeFor(empId, newRecord.type, newRecord.date)
+                    setNewRecord({ ...newRecord, employeeId: empId, time })
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccioná un empleado">
@@ -550,7 +565,13 @@ export function AttendancePage() {
                 <Label className="text-xs text-gray-500">Tipo</Label>
                 <Select
                   value={newRecord.type}
-                  onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'entry' | 'exit' })}
+                  onValueChange={(v) => {
+                    const type = v as 'entry' | 'exit'
+                    const time = newRecord.employeeId
+                      ? scheduledTimeFor(newRecord.employeeId, type, newRecord.date)
+                      : newRecord.time
+                    setNewRecord({ ...newRecord, type, time })
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -568,7 +589,13 @@ export function AttendancePage() {
                   <Input
                     type="date"
                     value={newRecord.date}
-                    onChange={(e) => setNewRecord({ ...newRecord, date: e.target.value })}
+                    onChange={(e) => {
+                      const date = e.target.value
+                      const time = newRecord.employeeId
+                        ? scheduledTimeFor(newRecord.employeeId, newRecord.type, date)
+                        : newRecord.time
+                      setNewRecord({ ...newRecord, date, time })
+                    }}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 flex-1">
