@@ -128,6 +128,7 @@ export const listByDateRange = query({
   },
 })
 
+
 /** Cron: cierra turnos abiertos de empleados que superaron su horario de salida */
 export const processAutoCheckout = internalMutation({
   args: {},
