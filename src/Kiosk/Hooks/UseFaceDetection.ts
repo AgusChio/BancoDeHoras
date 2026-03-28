@@ -19,6 +19,7 @@ export function useFaceDetection({ onDetection, intervalMs = 500, enabled = true
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const runningRef = useRef(false)
+  const restartingRef = useRef(false)
   const [status, setStatus] = useState<DetectionStatus>('loading')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -33,8 +34,10 @@ export function useFaceDetection({ onDetection, intervalMs = 500, enabled = true
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
+      restartingRef.current = false
       setStatus('ready')
     } catch (err) {
+      restartingRef.current = false
       setErrorMessage(err instanceof Error ? err.message : 'Error de cámara')
       setStatus('error')
     }
@@ -45,6 +48,46 @@ export function useFaceDetection({ onDetection, intervalMs = 500, enabled = true
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
   }, [])
+
+  // Visibility change handler: restart camera if stream died while tab was hidden
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.hidden) return
+
+      // Tab came back to foreground — check if stream is still alive
+      if (restartingRef.current) return
+
+      const video = videoRef.current
+      const stream = streamRef.current
+
+      const trackEnded = stream
+        ? stream.getTracks().some((t) => t.readyState === 'ended')
+        : true
+
+      if (trackEnded) {
+        restartingRef.current = true
+        stopDetection()
+        setStatus('loading')
+        startDetection()
+        return
+      }
+
+      if (video && video.paused) {
+        video.play().catch(() => {
+          // If play fails, do a full restart
+          restartingRef.current = true
+          stopDetection()
+          setStatus('loading')
+          startDetection()
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [startDetection, stopDetection])
 
   // Detection loop
   useEffect(() => {
@@ -60,6 +103,13 @@ export function useFaceDetection({ onDetection, intervalMs = 500, enabled = true
 
     async function detect() {
       if (!runningRef.current || !videoRef.current) return
+
+      // Skip detection when tab is in background to avoid wasting CPU
+      if (document.hidden) {
+        timeout = setTimeout(detect, intervalMs)
+        return
+      }
+
       if (videoRef.current.readyState < 2) {
         timeout = setTimeout(detect, 200)
         return

@@ -1,7 +1,9 @@
 import { useQuery, useMutation } from 'convex/react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Clock, X, Building2, LogIn, LogOut, Timer, Trash2, PlusCircle } from 'lucide-react'
+import { Clock, X, Building2, LogIn, LogOut, Timer, Trash2, PlusCircle, MoreVertical } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { formatTime } from '@/Shared/Lib/DateUtils'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -290,133 +292,174 @@ export function AttendancePage() {
           <p className="text-gray-400 text-sm mt-1">No hay registros para el período seleccionado</p>
         </div>
       ) : (
-        <div className="rounded-xl border bg-white overflow-hidden" style={{ borderColor: 'oklch(0.922 0 0)' }}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Empleado</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>
-                  <span className="flex items-center gap-1.5 text-green-600">
-                    <LogIn size={14} /> Entrada
-                  </span>
-                </TableHead>
-                <TableHead>
-                  <span className="flex items-center gap-1.5 text-orange-500">
-                    <LogOut size={14} /> Salida
-                  </span>
-                </TableHead>
-                <TableHead>
-                  <span className="flex items-center gap-1.5 text-gray-500">
-                    <Timer size={14} /> Horas
-                  </span>
-                </TableHead>
-                <TableHead className="w-32">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupRecords(records as RawRecord[]).map((row) => {
-                const worked =
-                  row.entry && row.exit ? row.exit.timestamp - row.entry.timestamp : null
-                return (
-                  <TableRow key={row.key}>
-                    <TableCell className="font-medium">{row.employeeName}</TableCell>
-                    <TableCell className="text-gray-500 text-sm">{row.date}</TableCell>
-
-                    {/* Entrada */}
-                    <TableCell>
-                      {row.entry ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex flex-col">
-                            <span className="font-mono text-sm text-gray-800">
-                              {formatTimeWithSeconds(row.entry.timestamp)}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {row.entry.deviceInfo === 'admin-manual' ? 'manual' : `${(row.entry.faceConfidence * 100).toFixed(0)}% confianza`}
-                            </span>
-                          </div>
-                          <button
-                            className="text-gray-300 hover:text-red-400 transition-colors ml-1"
-                            title="Eliminar entrada"
-                            onClick={() => openDeleteDialog(row.entry!._id, `entrada de ${row.employeeName}`)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </TableCell>
-
-                    {/* Salida */}
-                    <TableCell>
-                      {row.exit ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex flex-col">
-                            <span className="font-mono text-sm text-gray-800">
-                              {formatTimeWithSeconds(row.exit.timestamp)}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {row.exit.deviceInfo === 'admin-manual' ? 'manual' : `${(row.exit.faceConfidence * 100).toFixed(0)}% confianza`}
-                            </span>
-                          </div>
-                          <button
-                            className="text-gray-300 hover:text-red-400 transition-colors ml-1"
-                            title="Eliminar salida"
-                            onClick={() => openDeleteDialog(row.exit!._id, `salida de ${row.employeeName}`)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
-                          En turno
-                        </span>
-                      )}
-                    </TableCell>
-
-                    {/* Horas */}
-                    <TableCell>
-                      {worked !== null ? (
-                        <span className="text-sm font-medium text-gray-700">
-                          {formatHours(worked)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </TableCell>
-
-                    {/* Acciones */}
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
+        <>
+          {/* ── MOBILE CARDS (hidden on md+) ── */}
+          <div className="flex flex-col gap-2 md:hidden">
+            {groupRecords(records as RawRecord[]).map((row) => {
+              const worked = row.entry && row.exit ? row.exit.timestamp - row.entry.timestamp : null
+              return (
+                <div key={row.key} className="rounded-xl border bg-white p-4" style={{ borderColor: 'oklch(0.922 0 0)' }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">{row.employeeName}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{row.date}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                          <MoreVertical size={16} className="text-gray-400" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
                         {!row.entry && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50"
-                            onClick={() => openManualDialog(row.employeeId, row.employeeName, 'entry')}
-                          >
-                            <LogIn size={11} /> Entrada
-                          </Button>
+                          <DropdownMenuItem onClick={() => openManualDialog(row.employeeId, row.employeeName, 'entry')}>
+                            <LogIn size={14} className="mr-2 text-green-600" /> Registrar entrada
+                          </DropdownMenuItem>
                         )}
                         {!row.exit && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1 text-orange-500 border-orange-200 hover:bg-orange-50"
-                            onClick={() => openManualDialog(row.employeeId, row.employeeName, 'exit')}
-                          >
-                            <LogOut size={11} /> Cerrar turno
-                          </Button>
+                          <DropdownMenuItem onClick={() => openManualDialog(row.employeeId, row.employeeName, 'exit')}>
+                            <LogOut size={14} className="mr-2 text-orange-500" /> Cerrar turno
+                          </DropdownMenuItem>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                        {(row.entry || row.exit) && <DropdownMenuSeparator />}
+                        {row.entry && (
+                          <DropdownMenuItem className="text-red-500" onClick={() => openDeleteDialog(row.entry!._id, `entrada de ${row.employeeName}`)}>
+                            <Trash2 size={14} className="mr-2" /> Eliminar entrada
+                          </DropdownMenuItem>
+                        )}
+                        {row.exit && (
+                          <DropdownMenuItem className="text-red-500" onClick={() => openDeleteDialog(row.exit!._id, `salida de ${row.employeeName}`)}>
+                            <Trash2 size={14} className="mr-2" /> Eliminar salida
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><LogIn size={11} className="text-green-500" /> Entrada</p>
+                      {row.entry ? (
+                        <p className="font-mono text-sm font-medium text-gray-800">{formatTime(row.entry.timestamp)}</p>
+                      ) : (
+                        <p className="text-gray-300 text-sm">—</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><LogOut size={11} className="text-orange-400" /> Salida</p>
+                      {row.exit ? (
+                        <p className="font-mono text-sm font-medium text-orange-500">{formatTime(row.exit.timestamp)}</p>
+                      ) : row.entry ? (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">En turno</span>
+                      ) : (
+                        <p className="text-gray-300 text-sm">—</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Timer size={11} /> Horas</p>
+                      {worked !== null ? (
+                        <p className="text-sm font-semibold" style={{ color: 'oklch(0.65 0.15 250)' }}>{formatHours(worked)}</p>
+                      ) : (
+                        <p className="text-gray-300 text-sm">—</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── DESKTOP TABLE (hidden on mobile) ── */}
+          <div className="hidden md:block rounded-xl border bg-white overflow-hidden" style={{ borderColor: 'oklch(0.922 0 0)' }}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead><span className="flex items-center gap-1.5 text-green-600"><LogIn size={14} /> Entrada</span></TableHead>
+                  <TableHead><span className="flex items-center gap-1.5 text-orange-500"><LogOut size={14} /> Salida</span></TableHead>
+                  <TableHead><span className="flex items-center gap-1.5 text-gray-500"><Timer size={14} /> Horas</span></TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupRecords(records as RawRecord[]).map((row) => {
+                  const worked = row.entry && row.exit ? row.exit.timestamp - row.entry.timestamp : null
+                  return (
+                    <TableRow key={row.key}>
+                      <TableCell className="font-medium">{row.employeeName}</TableCell>
+                      <TableCell className="text-gray-500 text-sm">{row.date}</TableCell>
+
+                      <TableCell>
+                        {row.entry ? (
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm text-gray-800">{formatTimeWithSeconds(row.entry.timestamp)}</span>
+                            <span className="text-xs text-gray-400">
+                              {row.entry.deviceInfo === 'admin-manual' ? 'manual' : `${(row.entry.faceConfidence * 100).toFixed(0)}% conf.`}
+                            </span>
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </TableCell>
+
+                      <TableCell>
+                        {row.exit ? (
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm text-gray-800">{formatTimeWithSeconds(row.exit.timestamp)}</span>
+                            <span className="text-xs text-gray-400">
+                              {row.exit.deviceInfo === 'admin-manual' ? 'manual' : `${(row.exit.faceConfidence * 100).toFixed(0)}% conf.`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">En turno</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {worked !== null
+                          ? <span className="text-sm font-medium text-gray-700">{formatHours(worked)}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </TableCell>
+
+                      {/* 3-dot dropdown */}
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical size={15} className="text-gray-400" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {!row.entry && (
+                              <DropdownMenuItem onClick={() => openManualDialog(row.employeeId, row.employeeName, 'entry')}>
+                                <LogIn size={14} className="mr-2 text-green-600" /> Registrar entrada
+                              </DropdownMenuItem>
+                            )}
+                            {!row.exit && (
+                              <DropdownMenuItem onClick={() => openManualDialog(row.employeeId, row.employeeName, 'exit')}>
+                                <LogOut size={14} className="mr-2 text-orange-500" /> Cerrar turno
+                              </DropdownMenuItem>
+                            )}
+                            {(row.entry || row.exit) && <DropdownMenuSeparator />}
+                            {row.entry && (
+                              <DropdownMenuItem className="text-red-500" onClick={() => openDeleteDialog(row.entry!._id, `entrada de ${row.employeeName}`)}>
+                                <Trash2 size={14} className="mr-2" /> Eliminar entrada
+                              </DropdownMenuItem>
+                            )}
+                            {row.exit && (
+                              <DropdownMenuItem className="text-red-500" onClick={() => openDeleteDialog(row.exit!._id, `salida de ${row.employeeName}`)}>
+                                <Trash2 size={14} className="mr-2" /> Eliminar salida
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       {/* Dialog manual record / delete */}

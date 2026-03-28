@@ -26,7 +26,19 @@
       "Bash(git remote:*)",
       "Bash(git branch:*)",
       "Bash(git add:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(bunx convex:*)",
+      "Bash(bun add:*)",
+      "Bash(bun remove:*)",
+      "Bash(del \"C:\\\\Users\\\\agust\\\\Desktop\\\\BancoDeHora\\\\convex\\\\auth.config.js\")",
+      "Bash(bunx @convex-dev/auth)",
+      "Read(//c/Users/agust/.convex/**)",
+      "Read(//c/Users/agust/Desktop/BancoDeHora/$APPDATA/.convex/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://moonlit-salmon-676.convex.cloud/\")",
+      "Bash(TOKEN=\"eyJ2MiI6Ijg2YzNiMzgxOGQ2MzQyYTNiNWUxZTNiOWRjOTRiZDg3In0=\" __NEW_LINE_bb9a7ac39692ef7c__ curl -v \"https://api.convex.dev/v1/deployments/moonlit-salmon-676/environment_variables\" -H \"Authorization: Convex $TOKEN\")",
+      "Bash(bunx shadcn@latest add dropdown-menu --yes)"
     ]
   }
 }
