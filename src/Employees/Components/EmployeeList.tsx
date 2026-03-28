@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { Link } from '@tanstack/react-router'
-import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2, Clock, AlertTriangle } from 'lucide-react'
+import { UserPlus, Camera, UserX, UserCheck, Users, Pencil, Trash2, Building2, Clock, AlertTriangle, MoreVertical } from 'lucide-react'
 import { FaceCaptureWizard } from './FaceCaptureWizard'
 import { useAutoSelectBusiness } from '@/Shared/Hooks/UseAutoSelectBusiness'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,13 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/Shared/Components/PageHeader'
@@ -194,28 +201,83 @@ export function EmployeeList() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {employees.map((employee) => (
-            <div
-              key={employee._id}
-              className="flex items-center gap-4 rounded-xl border bg-white p-4"
-              style={{ borderColor: 'oklch(0.922 0 0)', opacity: employee.isActive ? 1 : 0.6 }}
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarFallback
-                  style={{ backgroundColor: 'oklch(0.60 0.20 270 / 0.15)', color: 'oklch(0.60 0.20 270)' }}
-                  className="font-semibold text-sm"
-                >
-                  {employee.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+        <>
+          {/* Mobile card list */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {employees.map((employee) => (
+              <div
+                key={employee._id}
+                className="rounded-xl border bg-white p-4"
+                style={{ borderColor: 'oklch(0.922 0 0)', opacity: employee.isActive ? 1 : 0.6 }}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback
+                      style={{ backgroundColor: 'oklch(0.60 0.20 270 / 0.15)', color: 'oklch(0.60 0.20 270)' }}
+                      className="font-semibold text-sm"
+                    >
+                      {employee.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900 truncate">{employee.name}</p>
+                  {/* Name + doc */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">{employee.name}</p>
+                    <p className="text-xs text-gray-500">Doc: {employee.documentId}</p>
+                  </div>
+
+                  {/* 3-dot menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <MoreVertical size={16} className="text-gray-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => setFaceCaptureTarget(employee)}>
+                        <Camera size={15} className="mr-2 text-gray-500" />
+                        Configurar cara
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEdit(employee)}>
+                        <Pencil size={15} className="mr-2 text-gray-500" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openSchedule(employee)}>
+                        <Clock size={15} className="mr-2 text-gray-500" />
+                        Horario
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleToggleActive(employee._id, employee.isActive)}>
+                        {employee.isActive ? (
+                          <>
+                            <UserX size={15} className="mr-2 text-red-400" />
+                            <span className="text-red-500">Desactivar</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck size={15} className="mr-2" style={{ color: 'oklch(0.70 0.20 145)' }} />
+                            <span style={{ color: 'oklch(0.50 0.20 145)' }}>Activar</span>
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setDeleteTarget(employee)}
+                        className="text-red-500 focus:text-red-600"
+                      >
+                        <Trash2 size={15} className="mr-2 text-red-400" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Badges row */}
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
                   <Badge
                     variant="outline"
-                    className="text-xs shrink-0"
+                    className="text-xs"
                     style={{
                       borderColor: employee.isActive ? 'oklch(0.70 0.20 145)' : 'oklch(0.922 0 0)',
                       color: employee.isActive ? 'oklch(0.50 0.20 145)' : 'oklch(0.556 0 0)',
@@ -223,89 +285,146 @@ export function EmployeeList() {
                   >
                     {employee.isActive ? 'Activo' : 'Inactivo'}
                   </Badge>
-                </div>
-                <p className="text-sm text-gray-500">Doc: {employee.documentId}</p>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {employee.faceDescriptors.length > 0 ? (
-                  <Badge variant="outline" className="text-xs gap-1" style={{ borderColor: 'oklch(0.65 0.15 185)', color: 'oklch(0.45 0.15 185)' }}>
-                    <Camera size={12} />
-                    {employee.faceDescriptors.length} foto{employee.faceDescriptors.length > 1 ? 's' : ''}
-                  </Badge>
-                ) : (
-                  <button
-                    onClick={() => setFaceCaptureTarget(employee)}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-colors hover:bg-amber-50"
-                    style={{ borderColor: 'oklch(0.75 0.18 75)', color: 'oklch(0.55 0.18 75)' }}
-                    title="Sin fotos — no puede fichar. Click para configurar."
-                  >
-                    <AlertTriangle size={11} />
-                    Sin foto · Configurar
-                  </button>
-                )}
-
-                <span className="text-xs text-gray-400">
-                  {formatDate(employee.createdAt)}
-                </span>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setFaceCaptureTarget(employee)}
-                  title={employee.faceDescriptors.length > 0 ? 'Re-capturar cara' : 'Configurar reconocimiento facial'}
-                >
-                  <Camera size={15} className={employee.faceDescriptors.length === 0 ? 'text-amber-400' : 'text-gray-400'} />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEdit(employee)}
-                  title="Editar"
-                >
-                  <Pencil size={15} className="text-gray-400" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openSchedule(employee)}
-                  title="Horario"
-                >
-                  <Clock size={15} className="text-gray-400" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleToggleActive(employee._id, employee.isActive)}
-                  title={employee.isActive ? 'Desactivar' : 'Activar'}
-                >
-                  {employee.isActive ? (
-                    <UserX size={16} className="text-red-400" />
+                  {employee.faceDescriptors.length > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="text-xs gap-1"
+                      style={{ borderColor: 'oklch(0.65 0.15 185)', color: 'oklch(0.45 0.15 185)' }}
+                    >
+                      <Camera size={11} />
+                      {employee.faceDescriptors.length} foto{employee.faceDescriptors.length > 1 ? 's' : ''}
+                    </Badge>
                   ) : (
-                    <UserCheck size={16} style={{ color: 'oklch(0.70 0.20 145)' }} />
+                    <button
+                      onClick={() => setFaceCaptureTarget(employee)}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-colors hover:bg-amber-50"
+                      style={{ borderColor: 'oklch(0.75 0.18 75)', color: 'oklch(0.55 0.18 75)' }}
+                      title="Sin fotos — no puede fichar. Click para configurar."
+                    >
+                      <AlertTriangle size={11} />
+                      Sin foto · Configurar
+                    </button>
                   )}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setDeleteTarget(employee)}
-                  title="Eliminar"
-                >
-                  <Trash2 size={15} className="text-red-400" />
-                </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Desktop card list */}
+          <div className="hidden md:grid gap-3">
+            {employees.map((employee) => (
+              <div
+                key={employee._id}
+                className="flex items-center gap-4 rounded-xl border bg-white p-4"
+                style={{ borderColor: 'oklch(0.922 0 0)', opacity: employee.isActive ? 1 : 0.6 }}
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback
+                    style={{ backgroundColor: 'oklch(0.60 0.20 270 / 0.15)', color: 'oklch(0.60 0.20 270)' }}
+                    className="font-semibold text-sm"
+                  >
+                    {employee.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-gray-900 truncate">{employee.name}</p>
+                    <Badge
+                      variant="outline"
+                      className="text-xs shrink-0"
+                      style={{
+                        borderColor: employee.isActive ? 'oklch(0.70 0.20 145)' : 'oklch(0.922 0 0)',
+                        color: employee.isActive ? 'oklch(0.50 0.20 145)' : 'oklch(0.556 0 0)',
+                      }}
+                    >
+                      {employee.isActive ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-500">Doc: {employee.documentId}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {employee.faceDescriptors.length > 0 ? (
+                    <Badge variant="outline" className="text-xs gap-1" style={{ borderColor: 'oklch(0.65 0.15 185)', color: 'oklch(0.45 0.15 185)' }}>
+                      <Camera size={12} />
+                      {employee.faceDescriptors.length} foto{employee.faceDescriptors.length > 1 ? 's' : ''}
+                    </Badge>
+                  ) : (
+                    <button
+                      onClick={() => setFaceCaptureTarget(employee)}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-colors hover:bg-amber-50"
+                      style={{ borderColor: 'oklch(0.75 0.18 75)', color: 'oklch(0.55 0.18 75)' }}
+                      title="Sin fotos — no puede fichar. Click para configurar."
+                    >
+                      <AlertTriangle size={11} />
+                      Sin foto · Configurar
+                    </button>
+                  )}
+
+                  <span className="text-xs text-gray-400">
+                    {formatDate(employee.createdAt)}
+                  </span>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFaceCaptureTarget(employee)}
+                    title={employee.faceDescriptors.length > 0 ? 'Re-capturar cara' : 'Configurar reconocimiento facial'}
+                  >
+                    <Camera size={15} className={employee.faceDescriptors.length === 0 ? 'text-amber-400' : 'text-gray-400'} />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => openEdit(employee)}
+                    title="Editar"
+                  >
+                    <Pencil size={15} className="text-gray-400" />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => openSchedule(employee)}
+                    title="Horario"
+                  >
+                    <Clock size={15} className="text-gray-400" />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleToggleActive(employee._id, employee.isActive)}
+                    title={employee.isActive ? 'Desactivar' : 'Activar'}
+                  >
+                    {employee.isActive ? (
+                      <UserX size={16} className="text-red-400" />
+                    ) : (
+                      <UserCheck size={16} style={{ color: 'oklch(0.70 0.20 145)' }} />
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setDeleteTarget(employee)}
+                    title="Eliminar"
+                  >
+                    <Trash2 size={15} className="text-red-400" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Dialog — Editar */}

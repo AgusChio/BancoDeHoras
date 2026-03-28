@@ -36,13 +36,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const effectivelyLoading = isLoading && !authTimedOut
 
-  // Cerrar sidebar en mobile al navegar
-  useEffect(() => {
-    if (window.innerWidth < 768) {
-      setSidebarOpen(false)
-    }
-  }, [currentPath, setSidebarOpen])
-
   useEffect(() => {
     if (!effectivelyLoading && !isAuthenticated && currentPath !== '/admin/login') {
       navigate({ to: '/admin/login' })
@@ -73,28 +66,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Mobile backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-20 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar — overlay on mobile, static on desktop */}
+      {/* Sidebar — desktop only (md+) */}
       <aside
         className={cn(
-          'fixed top-0 left-0 h-full flex flex-col border-r bg-white transition-all duration-200 z-30',
+          'hidden md:flex fixed top-0 left-0 h-full flex-col border-r bg-white transition-all duration-200 z-30',
           'md:static md:z-auto',
-          sidebarOpen
-            ? 'w-56 translate-x-0'
-            : 'w-56 -translate-x-full md:translate-x-0 md:w-16',
+          sidebarOpen ? 'md:w-56' : 'md:w-16',
         )}
         style={{ borderColor: 'oklch(0.922 0 0)' }}
       >
         {/* Header */}
         <div
-          className="flex h-14 md:h-16 items-center gap-3 px-4 border-b shrink-0"
+          className="flex h-16 items-center gap-3 px-4 border-b shrink-0"
           style={{ borderColor: 'oklch(0.922 0 0)' }}
         >
           <Building2 className="shrink-0" size={22} style={{ color: 'oklch(0.60 0.20 270)' }} />
@@ -146,14 +129,63 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           className="h-14 md:h-16 flex items-center gap-3 px-4 md:px-6 bg-white border-b shrink-0"
           style={{ borderColor: 'oklch(0.922 0 0)' }}
         >
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="shrink-0">
+          {/* Hamburger only on desktop */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="shrink-0 hidden md:inline-flex"
+          >
             {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
           </Button>
+
+          {/* App icon visible on mobile in header */}
+          <Building2
+            className="shrink-0 md:hidden"
+            size={20}
+            style={{ color: 'oklch(0.60 0.20 270)' }}
+          />
+
           <span className="text-sm font-medium text-gray-500 truncate">Panel de Administración</span>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-16 md:pb-6">{children}</main>
       </div>
+
+      {/* Bottom navigation bar — mobile only */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 flex items-center bg-white border-t md:hidden"
+        style={{ borderColor: 'oklch(0.922 0 0)' }}
+      >
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const active = currentPath.startsWith(to)
+          return (
+            <Link
+              key={to}
+              to={to}
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
+              style={{ color: active ? 'oklch(0.60 0.20 270)' : undefined }}
+            >
+              <Icon
+                size={20}
+                className={cn(!active && 'text-gray-400')}
+                style={active ? { color: 'oklch(0.60 0.20 270)' } : undefined}
+              />
+              <span className={cn(active ? '' : 'text-gray-400')}>{label}</span>
+            </Link>
+          )
+        })}
+
+        {/* Log out button on far right */}
+        <button
+          onClick={handleSignOut}
+          className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-[10px] font-medium text-gray-400"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut size={20} />
+          <span>Salir</span>
+        </button>
+      </nav>
     </div>
   )
 }
